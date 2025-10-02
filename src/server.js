@@ -1,5 +1,8 @@
 const express = require('express');
 const { config } = require('dotenv');
+const path = require('path');
+const mistral = require('@mistralai/mistralai');
+const { ApiEndpoint$inboundSchema } = require('@mistralai/mistralai/models/components');
 
 // wrapper o2switch
 if(typeof PhusionPassenger !== "undefined"){
@@ -11,24 +14,46 @@ const port = 3000;
 
 config();
 
+const apiKey = process.env.MISTRAL_API_KEY;
+const client = new mistral.Mistral({apiKey: apiKey})
+
+app.use(express.static(path.join(__dirname, '/public')));
+
 app.get('/', (req,res) => {
-    return res.status(200).json({
-        message: "Hello world from API"
-    });
+    return res.sendFile(path.join(__dirname, "/public/index.html"));
 })
 
-app.get('/test', (req,res) => {
-    return res.status(200).json({
-        message: "test fonctionne"
-    })
+
+app.post('/api/ia', async (req,res) => {
+    try{
+        if(!client) return res.status(503).json({message: 'Service indisponible(clé API manquante)'});
+        const userMessage = req.body.message;
+        if(!userMessage || typeof userMessage !== 'string'){
+            return res.status(400).json({message: 'message requis'});
+        }
+        const chatResponse = await client.chat.complete({
+            model: 'mistral-small-latest',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You create a linked in post of the subject the user share you. If the user share you a url use websearch, read the content, analyse, and write the linked in post.'
+                },
+                { role: 'user', content: userMessage }
+            ]
+        });
+        return res.json({ reply: chatResponse.choices[0].message.content });
+    } catch (err) {
+        console.error('[CHAT][ERROR]', err.message);
+        return res.status(500).json({ message: 'Erreur interne (chat)' });
+    }
 })
+
+
 
 if(typeof PhusionPassenger !== "undefined"){
     app.listen("passenger");
 }else {
     app.listen(port, () => {
-        const url = process.env.URL;
         console.log("Server is listening...");
-        console.log(`${url}`);
     });
 }
