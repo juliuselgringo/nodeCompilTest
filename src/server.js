@@ -2,7 +2,6 @@ const express = require('express');
 const { config } = require('dotenv');
 const path = require('path');
 const mistral = require('@mistralai/mistralai');
-const { ApiEndpoint$inboundSchema } = require('@mistralai/mistralai/models/components');
 
 // wrapper o2switch
 if(typeof PhusionPassenger !== "undefined"){
@@ -17,6 +16,8 @@ config();
 const apiKey = process.env.MISTRAL_API_KEY;
 const client = new mistral.Mistral({apiKey: apiKey})
 
+app.use(express.json());
+
 app.use(express.static(path.join(__dirname, '/public')));
 
 app.get('/', (req,res) => {
@@ -26,8 +27,10 @@ app.get('/', (req,res) => {
 
 app.post('/api/ia', async (req,res) => {
     try{
+        console.log(req.body.message)
         if(!client) return res.status(503).json({message: 'Service indisponible(clé API manquante)'});
         const userMessage = req.body.message;
+        console.log(userMessage);
         if(!userMessage || typeof userMessage !== 'string'){
             return res.status(400).json({message: 'message requis'});
         }
